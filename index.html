@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="id" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Aplikasi untuk meningkatkan kualitas foto ke resolusi HD dengan presisi tinggi">
+  <meta name="theme-color" content="#0f0f1e">
+  <title>Photo HD</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    * { font-family: 'Outfit', sans-serif; }
+    .drop-zone.dragover { border-color: #f97316; background: rgba(249,115,22,0.08); }
+    .slider-thumb::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%;
+      background: #f97316; cursor: pointer; border: 3px solid #1a1a2e;
+    }
+    .slider-thumb::-moz-range-thumb {
+      width: 20px; height: 20px; border-radius: 50%;
+      background: #f97316; cursor: pointer; border: 3px solid #1a1a2e;
+    }
+    .slider-thumb { -webkit-appearance: none; appearance: none; height: 6px; border-radius: 3px; background: #334155; outline: none; }
+    .before-after-container { position: relative; overflow: hidden; cursor: ew-resize; touch-action: none; }
+    .compare-slider { position: absolute; top: 0; bottom: 0; width: 3px; background: #f97316; z-index: 10; }
+    .compare-slider::after {
+      content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+      width: 36px; height: 36px; border-radius: 50%; background: #f97316;
+      border: 3px solid #1a1a2e; box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+    }
+    .compare-slider::before {
+      content: ' '; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+      z-index: 2; color: #1a1a2e; font-weight: 700; font-size: 14px; letter-spacing: 6px;
+    }
+    @keyframes pulse-glow { 0%,100% { box-shadow: 0 0 20px rgba(249,115,22,0.2); } 50% { box-shadow: 0 0 40px rgba(249,115,22,0.4); } }
+    .processing { animation: pulse-glow 1.5s ease-in-out infinite; }
+    .fade-in { animation: fadeIn 0.4s ease-out; }
+    @keyframes fadeIn { from { opacity:0; transform: translateY(10px); } to { opacity:1; transform: translateY(0); } }
+    @keyframes fadeOut { from { opacity:1; } to { opacity:0; } }
+  </style>
+  <style>body { box-sizing: border-box; }</style>
+  <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
+  <script src="/_sdk/element_sdk.js" type="text/javascript"></script>
+ </head>
+ <body class="h-full">
+  <div id="app" class="h-full w-full bg-[#0f0f1e] text-[#e8e8f0] overflow-auto">
+   <!-- Header -->
+   <header class="px-6 py-5 flex items-center justify-between border-b border-[#1e1e3a]">
+    <div class="flex items-center gap-3">
+     <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center">
+      <i data-lucide="sparkles" style="width:20px;height:20px;color:#0f0f1e"></i>
+     </div>
+     <h1 id="app-title" class="text-xl font-semibold tracking-tight">Photo HD</h1>
+    </div>
+    <div class="flex items-center gap-2">
+     <button id="reset-btn" class="hidden px-4 py-2 rounded-lg bg-[#1e1e3a] text-sm font-medium hover:bg-[#2a2a4a] transition-colors flex items-center gap-2"> <i data-lucide="rotate-ccw" style="width:15px;height:15px"></i> <span class="hidden sm:inline">Reset</span> </button>
+    </div>
+   </header><!-- Upload Zone -->
+   <div id="upload-section" class="flex flex-col items-center justify-center px-3 sm:px-6 py-12 sm:py-16">
+    <div id="drop-zone" class="drop-zone w-full max-w-lg border-2 border-dashed border-[#2a2a4a] rounded-2xl p-8 sm:p-12 text-center cursor-pointer hover:border-orange-500 transition-all">
+     <div class="flex flex-col items-center gap-4">
+      <div class="w-16 h-16 rounded-2xl bg-[#1a1a2e] flex items-center justify-center">
+       <i data-lucide="image-plus" style="width:32px;height:32px;color:#f97316"></i>
+      </div>
+      <div>
+       <p id="upload-text" class="text-base font-medium text-[#e8e8f0]">Seret &amp; lepas foto atau klik untuk memilih</p>
+       <p class="text-sm text-[#6b6b8a] mt-1">PNG, JPG, WEBP — Maks 20MB</p>
+      </div>
+     </div><input type="file" id="file-input" accept="image/*" class="hidden">
+    </div>
+   </div><!-- Editor Section -->
+   <div id="editor-section" class="hidden px-3 sm:px-6 pb-10 fade-in">
+    <!-- Presets -->
+    <div class="max-w-6xl mx-auto mb-6">
+     <label class="text-xs text-[#6b6b8a] font-medium block mb-3"> Preset Enhancement</label>
+     <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+      <button class="preset-btn py-2 px-3 rounded-lg bg-[#1a1a2e] border border-[#2a2a4a] hover:border-orange-500 transition-colors text-xs sm:text-sm font-medium" data-preset="portrait">Portrait</button> <button class="preset-btn py-2 px-3 rounded-lg bg-[#1a1a2e] border border-[#2a2a4a] hover:border-orange-500 transition-colors text-xs sm:text-sm font-medium" data-preset="landscape">Landscape</button> <button class="preset-btn py-2 px-3 rounded-lg bg-[#1a1a2e] border border-[#2a2a4a] hover:border-orange-500 transition-colors text-xs sm:text-sm font-medium" data-preset="night">Night</button> <button class="preset-btn py-2 px-3 rounded-lg bg-[#1a1a2e] border border-[#2a2a4a] hover:border-orange-500 transition-colors text-xs sm:text-sm font-medium" data-preset="vintage">Vintage</button>
+     </div>
+    </div><!-- Controls -->
+    <div class="max-w-6xl mx-auto mb-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 px-3 sm:px-0">
+     <div class="bg-[#1a1a2e] rounded-xl p-3 sm:p-4">
+      <label class="text-xs text-[#6b6b8a] font-medium block mb-2">Ketajaman</label> <input type="range" id="sharpness" min="0" max="100" value="50" class="slider-thumb w-full"> <span id="sharpness-val" class="text-xs text-orange-400 mt-1 block">50%</span>
+     </div>
+     <div class="bg-[#1a1a2e] rounded-xl p-3 sm:p-4">
+      <label class="text-xs text-[#6b6b8a] font-medium block mb-2">Kecerahan</label> <input type="range" id="brightness" min="-50" max="50" value="5" class="slider-thumb w-full"> <span id="brightness-val" class="text-xs text-orange-400 mt-1 block">+5</span>
+     </div>
+     <div class="bg-[#1a1a2e] rounded-xl p-3 sm:p-4">
+      <label class="text-xs text-[#6b6b8a] font-medium block mb-2">Kontras</label> <input type="range" id="contrast" min="-50" max="50" value="10" class="slider-thumb w-full"> <span id="contrast-val" class="text-xs text-orange-400 mt-1 block">+10</span>
+     </div>
+     <div class="bg-[#1a1a2e] rounded-xl p-3 sm:p-4">
+      <label class="text-xs text-[#6b6b8a] font-medium block mb-2">Saturasi</label> <input type="range" id="saturation" min="-50" max="50" value="0" class="slider-thumb w-full"> <span id="saturation-val" class="text-xs text-orange-400 mt-1 block">0</span>
+     </div>
+     <div class="bg-[#1a1a2e] rounded-xl p-3 sm:p-4">
+      <label class="text-xs text-[#6b6b8a] font-medium block mb-2">Skala</label> <select id="scale" class="w-full bg-[#0f0f1e] border border-[#2a2a4a] rounded-lg px-2 sm:px-3 py-2 text-xs sm:text-sm text-[#e8e8f0] outline-none"> <option value="1.5">1.5x</option> <option value="2" selected>2x HD</option> <option value="3">3x</option> <option value="4">4x Ultra</option> </select>
+     </div>
+    </div><!-- Enhance Button -->
+    <div class="max-w-6xl mx-auto mb-6 flex flex-col sm:flex-row gap-2 sm:gap-3 px-3 sm:px-0">
+     <button id="enhance-btn" class="flex-1 py-2.5 sm:py-3 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 text-[#0f0f1e] font-semibold text-sm sm:text-base hover:opacity-90 transition-opacity flex items-center justify-center gap-2"> <i data-lucide="zap" style="width:16px;height:16px"></i> <span class="truncate">Tingkatkan ke HD</span> </button> <button id="auto-enhance-btn" class="px-3 sm:px-6 py-2.5 sm:py-3 rounded-xl bg-[#1a1a2e] border border-orange-500/30 font-medium text-xs sm:text-sm hover:bg-[#2a2a4a] transition-colors flex items-center justify-center gap-2 text-orange-400 flex-shrink-0"> <i data-lucide="wand-2" style="width:16px;height:16px"></i> <span>Auto</span> </button> <button id="download-btn" class="hidden px-3 sm:px-6 py-2.5 sm:py-3 rounded-xl bg-[#1a1a2e] border border-[#2a2a4a] font-medium text-xs sm:text-sm hover:bg-[#2a2a4a] transition-colors flex items-center justify-center gap-2 flex-shrink-0"> <i data-lucide="download" style="width:16px;height:16px"></i> <span class="hidden sm:inline">Unduh</span> </button>
+    </div><!-- Info -->
+    <div id="info-bar" class="max-w-4xl mx-auto mb-4 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs text-[#6b6b8a] px-3 sm:px-0">
+     <span id="info-original"></span> <span id="info-arrow" class="hidden sm:inline"></span> <span id="info-enhanced" class="text-orange-400"></span>
+    </div><!-- Compare View -->
+    <div class="max-w-4xl mx-auto px-3 sm:px-0">
+     <div id="compare-wrapper" class="hidden before-after-container rounded-2xl overflow-hidden bg-[#1a1a2e]">
+      <canvas id="canvas-original" class="absolute top-0 left-0 w-full h-full object-contain"></canvas>
+      <canvas id="canvas-enhanced" class="w-full h-auto object-contain"></canvas>
+      <div id="compare-slider" class="compare-slider" style="left:50%"></div>
+      <div class="absolute top-3 left-3 bg-black/60 px-2 py-1 rounded text-xs">
+       Asli
+      </div>
+      <div class="absolute top-3 right-3 bg-black/60 px-2 py-1 rounded text-xs">
+       HD
+      </div>
+     </div>
+     <div id="preview-single" class="rounded-2xl overflow-hidden bg-[#1a1a2e]">
+      <canvas id="canvas-preview" class="w-full h-auto"></canvas>
+     </div>
+    </div>
+   </div><!-- Processing Overlay -->
+   <div id="processing" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+    <div class="processing bg-[#1a1a2e] rounded-2xl p-8 flex flex-col items-center gap-4">
+     <div class="w-12 h-12 border-3 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+     <p class="font-medium">Memproses foto...</p>
+     <p id="progress-text" class="text-sm text-[#6b6b8a]">Meningkatkan ketajaman...</p>
+    </div>
+   </div>
+  </div>
+  <script>
+  // ---- App Logic ----
+  let originalImage = null;
+  let enhancedData = null;
+  let originalFileName = 'photo-hd-enhanced.png';
+
+  const $ = id => document.getElementById(id);
+  const dropZone = $('drop-zone');
+  const fileInput = $('file-input');
+
+  // Presets
+  const presets = {
+    portrait: { sharpness: 75, brightness: 2, contrast: 20, saturation: 25, scale: 2 },
+    landscape: { sharpness: 70, brightness: 5, contrast: 15, saturation: 20, scale: 2 },
+    night: { sharpness: 85, brightness: 15, contrast: 25, saturation: 10, scale: 2 },
+    vintage: { sharpness: 50, brightness: 0, contrast: -5, saturation: -15, scale: 2 }
+  };
+
+  document.querySelectorAll('.preset-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const presetName = btn.dataset.preset;
+      applyPreset(presetName);
+      btn.classList.add('border-orange-500', 'bg-orange-500/10');
+      document.querySelectorAll('.preset-btn').forEach(b => {
+        if(b !== btn) b.classList.remove('border-orange-500', 'bg-orange-500/10');
+      });
+    });
+  });
+
+  function applyPreset(presetName) {
+    const preset = presets[presetName];
+    if(!preset) return;
+    $('sharpness').value = preset.sharpness;
+    $('sharpness-val').textContent = preset.sharpness + '%';
+    $('brightness').value = preset.brightness;
+    $('brightness-val').textContent = (preset.brightness > 0 ? '+' : '') + preset.brightness;
+    $('contrast').value = preset.contrast;
+    $('contrast-val').textContent = (preset.contrast > 0 ? '+' : '') + preset.contrast;
+    $('saturation').value = preset.saturation;
+    $('saturation-val').textContent = (preset.saturation > 0 ? '+' : '') + preset.saturation;
+    $('scale').value = preset.scale;
+  }
+
+  dropZone.addEventListener('click', () => fileInput.click());
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+  dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('dragover'); if(e.dataTransfer.files[0]) loadImage(e.dataTransfer.files[0]); });
+  fileInput.addEventListener('change', e => { if(e.target.files[0]) loadImage(e.target.files[0]); });
+
+  ['sharpness','brightness','contrast','saturation'].forEach(id => {
+    $(id).addEventListener('input', e => {
+      const v = e.target.value;
+      if(id==='sharpness') $(id+'-val').textContent = v+'%';
+      else $(id+'-val').textContent = (v>0?'+':'')+v;
+    });
+  });
+
+  $('reset-btn').addEventListener('click', () => {
+    originalImage = null; enhancedData = null;
+    $('upload-section').classList.remove('hidden');
+    $('editor-section').classList.add('hidden');
+    $('reset-btn').classList.add('hidden');
+    $('compare-wrapper').classList.add('hidden');
+    $('preview-single').classList.remove('hidden');
+    $('download-btn').classList.add('hidden');
+    fileInput.value = '';
+    document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('border-orange-500', 'bg-orange-500/10'));
+  });
+
+  $('enhance-btn').addEventListener('click', processImage);
+  $('auto-enhance-btn').addEventListener('click', autoEnhance);
+  $('download-btn').addEventListener('click', async () => {
+    const btn = $('download-btn');
+    const originalContent = btn.innerHTML;
+    btn.disabled = true;
+    btn.classList.add('opacity-60');
+    btn.innerHTML = '<div class="w-4 h-4 border-2 border-orange-400 border-t-transparent rounded-full animate-spin"></div><span>Mengunduh...</span>';
+    
+    // Trigger download dan tunggu hingga benar-benar selesai
+    await downloadImageAsync();
+    
+    btn.disabled = false;
+    btn.classList.remove('opacity-60');
+    btn.innerHTML = originalContent;
+  });
+
+  function loadImage(file) {
+    if(!file.type.startsWith('image/')) return;
+    originalFileName = file.name;
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        originalImage = img;
+        $('upload-section').classList.add('hidden');
+        $('editor-section').classList.remove('hidden');
+        $('reset-btn').classList.remove('hidden');
+        $('compare-wrapper').classList.add('hidden');
+        $('preview-single').classList.remove('hidden');
+        $('download-btn').classList.add('hidden');
+        $('info-original').textContent = `Asli: ${img.width}×${img.height}`;
+        $('info-arrow').classList.add('hidden');
+        $('info-enhanced').textContent = '';
+        drawPreview(img);
+        lucide.createIcons();
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function drawPreview(img) {
+    const c = $('canvas-preview');
+    const maxW = 800;
+    const ratio = Math.min(maxW / img.width, 1);
+    c.width = img.width * ratio;
+    c.height = img.height * ratio;
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+  }
+
+  async function processImage() {
+    if(!originalImage) return;
+    
+    $('processing').classList.remove('hidden');
+
+    await delay(200);
+    $('progress-text').textContent = 'Meningkatkan resolusi...';
+
+    const scale = parseFloat($('scale').value);
+    const sharpness = parseInt($('sharpness').value) / 100;
+    const brightness = parseInt($('brightness').value);
+    const contrast = parseInt($('contrast').value);
+    const saturation = parseInt($('saturation').value);
+
+    await delay(300);
+    $('progress-text').textContent = 'Menerapkan ketajaman...';
+
+    const w = Math.round(originalImage.width * scale);
+    const h = Math.round(originalImage.height * scale);
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext('2d');
+
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(originalImage, 0, 0, w, h);
+
+    await delay(300);
+    $('progress-text').textContent = 'Menyesuaikan warna...';
+
+    const imageData = ctx.getImageData(0, 0, w, h);
+    const d = imageData.data;
+
+    const cf = (259 * (contrast * 2.55 + 255)) / (255 * (259 - contrast * 2.55));
+    const satFactor = 1 + (saturation / 100);
+    
+    for(let i = 0; i < d.length; i += 4) {
+      let r = d[i];
+      let g = d[i+1];
+      let b = d[i+2];
+      
+      r = clamp(cf * (r + brightness - 128) + 128);
+      g = clamp(cf * (g + brightness - 128) + 128);
+      b = clamp(cf * (b + brightness - 128) + 128);
+      
+      const max = Math.max(r, g, b);
+      const min = Math.min(r, g, b);
+      const l = (max + min) / 2;
+      
+      if (max !== min) {
+        const s = l < 128 ? (max - min) / (max + min) : (max - min) / (510 - max - min);
+        const h = max === r ? ((g - b) / (max - min) + (g < b ? 6 : 0)) / 6 : max === g ? ((b - r) / (max - min) + 2) / 6 : ((r - g) / (max - min) + 4) / 6;
+        
+        const newS = Math.min(1, s * satFactor);
+        const c = (1 - Math.abs(2 * (l / 255) - 1)) * newS;
+        const x = c * (1 - Math.abs((h * 6) % 2 - 1));
+        const m = (l / 255) - (c / 2);
+        
+        let nr, ng, nb;
+        if (h < 1/6) { nr = c; ng = x; nb = 0; }
+        else if (h < 2/6) { nr = x; ng = c; nb = 0; }
+        else if (h < 3/6) { nr = 0; ng = c; nb = x; }
+        else if (h < 4/6) { nr = 0; ng = x; nb = c; }
+        else if (h < 5/6) { nr = x; ng = 0; nb = c; }
+        else { nr = c; ng = 0; nb = x; }
+        
+        d[i] = clamp((nr + m) * 255);
+        d[i+1] = clamp((ng + m) * 255);
+        d[i+2] = clamp((nb + m) * 255);
+      }
+    }
+    ctx.putImageData(imageData, 0, 0);
+
+    await delay(300);
+    $('progress-text').textContent = 'Menerapkan penajaman...';
+
+    if(sharpness > 0) {
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = w; tempCanvas.height = h;
+      const tCtx = tempCanvas.getContext('2d');
+      tCtx.filter = `blur(${1 + sharpness}px)`;
+      tCtx.drawImage(canvas, 0, 0);
+      const blurred = tCtx.getImageData(0, 0, w, h).data;
+      const sharp = ctx.getImageData(0, 0, w, h);
+      const sd = sharp.data;
+      const amount = 0.5 + sharpness * 1.5;
+      for(let i = 0; i < sd.length; i += 4) {
+        sd[i]   = clamp(sd[i] + (sd[i] - blurred[i]) * amount);
+        sd[i+1] = clamp(sd[i+1] + (sd[i+1] - blurred[i+1]) * amount);
+        sd[i+2] = clamp(sd[i+2] + (sd[i+2] - blurred[i+2]) * amount);
+      }
+      ctx.putImageData(sharp, 0, 0);
+    }
+
+    await delay(200);
+    $('progress-text').textContent = 'Selesai!';
+
+    enhancedData = canvas;
+
+    $('preview-single').classList.add('hidden');
+    $('compare-wrapper').classList.remove('hidden');
+    $('download-btn').classList.remove('hidden');
+
+    const cw = $('compare-wrapper');
+    const dispW = cw.clientWidth || 700;
+    const dispH = Math.round(dispW * (h / w));
+
+    const cOrig = $('canvas-original');
+    cOrig.width = dispW; cOrig.height = dispH;
+    cOrig.getContext('2d').drawImage(originalImage, 0, 0, dispW, dispH);
+
+    const cEnh = $('canvas-enhanced');
+    cEnh.width = dispW; cEnh.height = dispH;
+    cEnh.getContext('2d').drawImage(canvas, 0, 0, dispW, dispH);
+
+    $('compare-slider').style.left = '50%';
+    cOrig.style.clipPath = 'inset(0 50% 0 0)';
+
+    $('info-arrow').classList.remove('hidden');
+    $('info-enhanced').textContent = `HD: ${w}×${h}`;
+
+    await delay(400);
+    $('processing').classList.add('hidden');
+    lucide.createIcons();
+    initCompareSlider();
+  }
+
+  function autoEnhance() {
+    $('sharpness').value = 70;
+    $('sharpness-val').textContent = '70%';
+    $('brightness').value = 5;
+    $('brightness-val').textContent = '+5';
+    $('contrast').value = 15;
+    $('contrast-val').textContent = '+15';
+    $('saturation').value = 20;
+    $('saturation-val').textContent = '+20';
+    $('scale').value = 2;
+    processImage();
+  }
+
+  function initCompareSlider() {
+    const wrapper = $('compare-wrapper');
+    const slider = $('compare-slider');
+    const origCanvas = $('canvas-original');
+    let dragging = false;
+
+    function updateSlider(x) {
+      const rect = wrapper.getBoundingClientRect();
+      let pct = ((x - rect.left) / rect.width) * 100;
+      pct = Math.max(0, Math.min(100, pct));
+      slider.style.left = pct + '%';
+      origCanvas.style.clipPath = `inset(0 ${100 - pct}% 0 0)`;
+    }
+
+    wrapper.addEventListener('mousedown', e => { dragging = true; updateSlider(e.clientX); });
+    window.addEventListener('mousemove', e => { if(dragging) updateSlider(e.clientX); });
+    window.addEventListener('mouseup', () => dragging = false);
+    wrapper.addEventListener('touchstart', e => { dragging = true; updateSlider(e.touches[0].clientX); }, {passive:true});
+    window.addEventListener('touchmove', e => { if(dragging) updateSlider(e.touches[0].clientX); });
+    window.addEventListener('touchend', () => dragging = false);
+  }
+
+  function downloadImage(callback) {
+    if(!enhancedData) return;
+    const link = document.createElement('a');
+    const nameWithoutExt = originalFileName.substring(0, originalFileName.lastIndexOf('.')) || originalFileName;
+    const ext = originalFileName.substring(originalFileName.lastIndexOf('.')) || '.png';
+    link.download = nameWithoutExt + '-HD' + ext;
+    link.href = enhancedData.toDataURL('image/png');
+    
+    // Tunggu sedikit sebelum trigger download
+    setTimeout(() => {
+      link.click();
+      // Tunggu beberapa ms agar download sudah terdeteksi
+      if(callback) setTimeout(callback, 100);
+    }, 50);
+  }
+
+  async function downloadImageAsync() {
+    if(!enhancedData) return;
+    const link = document.createElement('a');
+    const nameWithoutExt = originalFileName.substring(0, originalFileName.lastIndexOf('.')) || originalFileName;
+    const ext = originalFileName.substring(originalFileName.lastIndexOf('.')) || '.png';
+    link.download = nameWithoutExt + '-HD' + ext;
+    link.href = enhancedData.toDataURL('image/png');
+    
+    link.click();
+    
+    // Tunggu lebih lama untuk memastikan download benar-benar dimulai
+    // Browser butuh waktu untuk menyiapkan file, terutama untuk file besar
+    await delay(1500);
+  }
+
+  function clamp(v) { return Math.max(0, Math.min(255, Math.round(v))); }
+  function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    lucide.createIcons();
+  });
+  </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9e2484ef3310f93b',t:'MTc3NDUxMDk1My4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
